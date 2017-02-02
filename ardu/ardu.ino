@@ -1,6 +1,6 @@
 /*
-* temperature
-*
+* temperature humidity brightness
+* pumpState lightState ventState
 *
 *
 */
@@ -13,7 +13,7 @@
 
 Servo servo; 
 SoftwareSerial esp(ESP_RX, ESP_TX);
-char server[] = "34.249.39.144";
+char server[] = "";
 char appKey[] = "983fee7d-5713-48b6-b6a1-8704a1c1fc9d";
 
 void setup() {
