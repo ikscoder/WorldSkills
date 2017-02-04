@@ -15,8 +15,9 @@
 
 Servo servo; 
 SoftwareSerial esp(ESP_RX, ESP_TX);
-char server[] = "34.249.39.144";
-char appKey[] = "983fee7d-5713-48b6-b6a1-8704a1c1fc9d";
+char server[] = "34.248.238.197";//"34.249.39.144";
+char appKey[] = "e72278dc-8ad1-4df6-bde5-e4785cf2f236";//"983fee7d-5713-48b6-b6a1-8704a1c1fc9d";
+char thing[]="HARThing";//TestT
 
 void setup() {
   esp.begin(19200);
@@ -28,7 +29,7 @@ void setup() {
   //Serial.println(WiFiCheck());
   setServer();
   Serial.println("Started...");
-  //sendData(String(22.0),"temperature");
+  sendData(String(90.0),"temperature");
   //Serial.println(getData("temperature"));
 }
 
@@ -76,7 +77,9 @@ void sendData(String data, String param)
 {
   clearBuf();
   String json = String("{\"" + param + "\": " + data + "}");
-  esp.print(F("aPUT /Thingworx/Things/TestT/Properties/"));
+  esp.print(F("aPUT /Thingworx/Things/"));
+  esp.print(thing);
+  esp.print(F("/Properties/"));
   esp.print(param);
   esp.println(F(" HTTP/1.1"));
   esp.print(F("aHost: "));
