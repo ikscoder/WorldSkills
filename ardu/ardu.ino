@@ -7,35 +7,62 @@
 #include <SoftwareSerial.h>
 #include <Servo.h>
 
+#define DEBUG true
 #define ESP_RX 6
 #define ESP_TX 7
 #define SERVO_PIN 9
+#define RELAY_PIN 4
 
 Servo servo; 
 SoftwareSerial esp(ESP_RX, ESP_TX);
-char server[] = "";
+char server[] = "34.249.39.144";
 char appKey[] = "983fee7d-5713-48b6-b6a1-8704a1c1fc9d";
 
 void setup() {
   esp.begin(19200);
   Serial.begin(115200);
-  servo.attach(SERVO_PIN);
+  //servo.attach(SERVO_PIN);
+  pinMode(RELAY_PIN, OUTPUT);   
   while (! Serial);
+  while (! esp);
+  //Serial.println(WiFiCheck());
   setServer();
-  
+  Serial.println("Started...");
   //sendData(String(22.0),"temperature");
   //Serial.println(getData("temperature"));
 }
 
 void loop() {
-  /*while (esp.available() > 0)
+  if(DEBUG)while (esp.available() > 0)
     {
     Serial.write(esp.read());
     }
     while (Serial.available() > 0)
     {
     esp.write(Serial.read());
+    }
+    /*String buff="";
+    while (true)
+  {
+    if (Serial.available()) {
+      char c = Serial.read();
+      if (c == '$')break;
+      buff += c;
+    }
+  }
+    if(buff!="")
+    {
+       sendData(String(float(buff.toInt())/10),"temperature");
+
     }*/
+    if(!DEBUG){
+    delay(500);
+    String data=getData("ventState");
+    if(data=="false")
+    digitalWrite(RELAY_PIN, LOW);
+    if(data=="true")
+    digitalWrite(RELAY_PIN, HIGH);
+    }
 }
 
 void setServer()
@@ -63,6 +90,11 @@ void sendData(String data, String param)
   esp.println("a" + json);
   esp.println(F("a"));
   esp.println(F("C"));
+  Serial.print(millis());
+  Serial.print(F("  "));
+  Serial.print(param);
+  Serial.print(F(" sended:  "));
+  Serial.println(data);
 }
 
 void clearBuf()
@@ -95,7 +127,7 @@ String getData(String param)
       Data += c;
     }
     i++;
-    if (i >= 4000000)
+    if (i >= 2000000)
     {
       Data = "err";
       break;
@@ -104,5 +136,24 @@ String getData(String param)
 
   Data = Data.substring(Data.lastIndexOf(param) + param.length() + 1);
   Data = Data.substring(1, Data.length() - 3);
+  Serial.print(millis());
+  Serial.print(F("   Getting "));
+  Serial.print(param);
+  Serial.print(F(": "));
+  Serial.println(Data);
   return Data;
+}
+
+String WiFiCheck()
+{
+ esp.println(F("?sw"));
+ String buf;
+ delay(1000);
+ while(esp.available())
+ {
+   Serial.write(esp.read());
+ /* char c=esp.read();
+  buf+=c;*/
+ }
+ return buf;
 }
