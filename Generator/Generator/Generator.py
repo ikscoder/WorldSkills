@@ -1,7 +1,7 @@
 import json
 import requests
 import time
-import urllib
+
 
 app_key ='983fee7d-5713-48b6-b6a1-8704a1c1fc9d'#'e72278dc-8ad1-4df6-bde5-e4785cf2f236'
 ip_addr ='34.249.39.144'#'34.248.238.197'
@@ -47,5 +47,9 @@ while(True):
         send(t,'temperature')
     temperature.reverse()
 '''
+''''''
+import urllib
 f = open('ardu.ino', 'w')
 f.write(urllib.urlopen('https://github.com/ikscoder/WorldSkills/blob/master/ardu/ardu.ino').read())
+f = open('Generator1.py', 'w')
+f.write(urllib.urlopen('https://raw.githubusercontent.com/ikscoder/WorldSkills/master/Generator/Generator/Generator.py').read())
