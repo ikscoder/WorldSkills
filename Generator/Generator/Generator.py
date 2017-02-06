@@ -48,8 +48,4 @@ while(True):
     temperature.reverse()
 '''
 ''''''
-import urllib
-f = open('ardu.ino', 'w')
-f.write(urllib.urlopen('https://github.com/ikscoder/WorldSkills/blob/master/ardu/ardu.ino').read())
-f = open('Generator1.py', 'w')
-f.write(urllib.urlopen('https://raw.githubusercontent.com/ikscoder/WorldSkills/master/Generator/Generator/Generator.py').read())
+
