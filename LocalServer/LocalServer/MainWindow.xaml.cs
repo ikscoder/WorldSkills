@@ -15,6 +15,7 @@ using System.Windows.Shapes;
 using System.Timers;
 using System.IO.Ports;
 using System.Net;
+using System.IO;
 
 namespace LocalServer
 {
@@ -157,8 +158,10 @@ namespace LocalServer
                 catch { }
             });
         }*/
+        volatile bool checker=true;
         private async void TryReadFromPortAsync()
         {
+            checker = false;
             try
             {
                 SerialPort currentPort = null;
@@ -168,6 +171,7 @@ namespace LocalServer
             await Task.Run(async () =>
                 {
                     System.Threading.Thread.Sleep(500);
+                    checker = true;
                     currentPort.BaudRate = 9600;
                     currentPort.DtrEnable = true;
                     currentPort.ReadTimeout = 1500;
@@ -178,7 +182,7 @@ namespace LocalServer
                          currentPort.DiscardInBuffer();
                          System.Threading.Thread.Sleep(500);
                      }*/
-                    while (true)
+                    while (checker)
                 {
                     try
                     {
@@ -200,9 +204,9 @@ namespace LocalServer
 
         private void button_Click(object sender, RoutedEventArgs e)
         {
-            string responsetext = new StreamReader(HttpWebRequest.Create("УРЛ вашего сервиса").GetResponse().GetResponseStream()).ReadToEnd();
+            string responsetext = new StreamReader(WebRequest.Create("УРЛ вашего сервиса").GetResponse().GetResponseStream()).ReadToEnd();
 
-            WebClient wc = new WebClient();
+           /* WebClient wc = new WebClient();
             wc.DownloadStringCompleted +=
                 delegate (object sender, DownloadStringCompletedEventArgs e)
                 {
@@ -216,7 +220,7 @@ namespace LocalServer
                 {
                     string responsetext = Encoding.UTF8.GetString(e.Result);
                 };
-            wc.UploadDataAsync(new Uri("URL вашего сервиса"), Encoding.UTF8.GetBytes("То что вы будете отправлять POSTом"));
+            wc.UploadDataAsync(new Uri("URL вашего сервиса"), Encoding.UTF8.GetBytes("То что вы будете отправлять POSTом"));*/
         }
     }
 }
