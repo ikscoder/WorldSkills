@@ -1,76 +1,116 @@
-/*
-* temperature humidity brightness
-* pumpState lightState ventState
-*
-*
-*/
+#include <DHT_U.h>
+#include <Wire.h>
+#include <BH1750.h>
 #include <SoftwareSerial.h>
+#include <DHT.h>
 #include <Servo.h>
 
-#define DEBUG true
-#define ESP_RX 6
 #define ESP_TX 7
-#define SERVO_PIN 9
+#define ESP_RX 6
+#define LAMP_PIN 5
 #define RELAY_PIN 4
+#define SERVO_PIN 3
+#define DHT_PIN 2
+#define WATERMETER A3
+#define DHTTYPE DHT11
 
-Servo servo; 
+#define SENSOR_POLL_INTERVAL 1500
+
+#define IS_LOCAL false
+#define DEBUG false
+
+DHT dht(DHT_PIN, DHTTYPE);
+BH1750 lightMeter;
 SoftwareSerial esp(ESP_RX, ESP_TX);
-char server[] = "34.248.238.197";//"34.249.39.144";
-char appKey[] = "e72278dc-8ad1-4df6-bde5-e4785cf2f236";//"983fee7d-5713-48b6-b6a1-8704a1c1fc9d";
-char thing[]="HARThing";//TestT
+Servo vent;
+
+// Connection parametrs
+char server[] = "tvsn.cloud.thingworx.com";
+char appKey[] = "";
+char thing[] = "DreamHouseThing";
+
+long last_sensors_poll = 0;
+
+// DataModel
+int Temperature;
+int Brightness;
+int Humidity;
+bool VentState = false;
+bool PumpState = false;
+int LampBrightness = 0;
 
 void setup() {
-  esp.begin(19200);
   Serial.begin(115200);
-  //servo.attach(SERVO_PIN);
-  pinMode(RELAY_PIN, OUTPUT);   
+  esp.begin(19200);
+  dht.begin();
+  digitalWrite(WATERMETER, 1);
+  lightMeter.begin();
+  vent.attach(SERVO_PIN);
+  pinMode(LAMP_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  setServer();
+
   while (! Serial);
   while (! esp);
-  //Serial.println(WiFiCheck());
-  setServer();
-  Serial.println("Started...");
-  sendData(String(90.0),"temperature");
-  //Serial.println(getData("temperature"));
+  last_sensors_poll = millis();
 }
 
 void loop() {
-  if(DEBUG)while (esp.available() > 0)
-    {
-    Serial.write(esp.read());
-    }
-    while (Serial.available() > 0)
-    {
-    esp.write(Serial.read());
-    }
-    /*String buff="";
-    while (true)
+  if (IS_LOCAL)
   {
-    if (Serial.available()) {
-      char c = Serial.read();
-      if (c == '$')break;
-      buff += c;
+    localWork();
+  } else {
+    if (DEBUG)
+    {
+      while (esp.available() > 0)
+      {
+        Serial.write(esp.read());
+      }
+      while (Serial.available() > 0)
+      {
+        esp.write(Serial.read());
+      }
+    } else {
+      //GetValues
+      String Stmp = getData("VentState");
+      if (Stmp.equals("true"))VentState = true;
+      if (Stmp.equals("false"))VentState = false;
+      Stmp = getData("PumpState");
+      if (Stmp.equals("true"))PumpState = true;
+      if (Stmp.equals("false"))PumpState = false;
+      Stmp = getData("LampBrightness");
+      LampBrightness = Stmp.toInt();
+      //CheckData
+      LampBrightness = LampBrightness < 0 ? 0 : LampBrightness;
+      LampBrightness = LampBrightness > 100 ? 100 : LampBrightness;
+      LampBrightness = map(LampBrightness, 0, 100, 0, 255);
+
+      analogWrite(LAMP_PIN, LampBrightness);
+      digitalWrite(RELAY_PIN, PumpState ? 1 : 0);
+      vent.write(VentState ? 40 : 170);
+
+      if ((millis() - last_sensors_poll) > SENSOR_POLL_INTERVAL) {
+        Humidity = analogRead(WATERMETER);
+        Temperature = dht.readTemperature();
+        Brightness = lightMeter.readLightLevel();
+
+        //SendData
+        sendData(String(Temperature), "Temperature");
+        sendData(String(Humidity), "Humidity");
+        sendData(String(Brightness), "Brightness");
+
+        last_sensors_poll = millis();
+      }
     }
   }
-    if(buff!="")
-    {
-       sendData(String(float(buff.toInt())/10),"temperature");
-
-    }*/
-    if(!DEBUG){
-    delay(500);
-    String data=getData("ventState");
-    if(data=="false")
-    digitalWrite(RELAY_PIN, LOW);
-    if(data=="true")
-    digitalWrite(RELAY_PIN, HIGH);
-    }
 }
+
 
 void setServer()
 {
   esp.println();
   esp.println((String("h" + String(server))));
-  esp.println(F("p80"));//F() хранение строки в Flash памяти
+  esp.println(F("p80"));
 }
 
 void sendData(String data, String param)
@@ -110,7 +150,9 @@ String getData(String param)
   String Data = "";
   clearBuf();
   esp.println(F("Mjson:"));
-  esp.print(F("aGET /Thingworx/Things/TestT/Properties/"));
+  esp.print(F("aGET /Thingworx/Things/"));
+  esp.print(thing);
+  esp.print(F("/Properties/"));
   esp.print(param);
   esp.println(F(" HTTP/1.1"));
   esp.print(F("aHost: "));
@@ -146,17 +188,53 @@ String getData(String param)
   Serial.println(Data);
   return Data;
 }
-
-String WiFiCheck()
+//------LOCAL-----------------------------------------------------------------------------------------------------------------------------
+void localWork()
 {
- esp.println(F("?sw"));
- String buf;
- delay(1000);
- while(esp.available())
- {
-   Serial.write(esp.read());
- /* char c=esp.read();
-  buf+=c;*/
- }
- return buf;
+  String buf = "";
+  while (Serial.available())
+  {
+    char c = Serial.read();
+    buf += c;
+  }
+  if (buf.indexOf("Led=") >= 0) {
+    buf = buf.substring(buf.indexOf("Led=") + 4);
+    Serial.print(buf);
+    buf = buf.substring(0, buf.length() - 2);
+    int value = buf.toInt();
+    analogWrite(LAMP_PIN, value);
+  }
+
+  if (buf.indexOf("PumpOn") >= 0) {
+    digitalWrite(RELAY_PIN, 1);
+  }
+  if (buf.indexOf("PumpOff") >= 0)
+  {
+    digitalWrite(RELAY_PIN, 0);
+  }
+  if (buf.indexOf("VentOn") >= 0) {
+    vent.write(40);
+  }
+  if (buf.indexOf("VentOff") >= 0)
+  {
+    vent.write(170);
+  }
+
+  if ((millis() - last_sensors_poll) > SENSOR_POLL_INTERVAL) {
+    Humidity = analogRead(WATERMETER);
+    Temperature = dht.readTemperature();
+    Brightness = lightMeter.readLightLevel();
+
+    Serial.print("Temperature=");
+    if (!isnan(Temperature)) {
+      Serial.print(Temperature);
+    } else {
+      Serial.print("--");
+    }
+    Serial.print(" Brightness=");
+    Serial.print(Brightness);
+    Serial.print(" Humidity=");
+    Serial.println(Humidity);
+    last_sensors_poll = millis();
+  }
 }

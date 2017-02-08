@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace LocalServer
 {
@@ -34,9 +36,9 @@ namespace LocalServer
         public double Temperature { get { return _temperature; } set { if (value != _temperature) { _temperature = value; TemperatureNotify(); VentMangement(); } } }
         public double Brightness { get { return _brightness; } set { if (value != _brightness) { _brightness = value; BrightnessNotify(); BrightnessMangement(); } } }
         public double Humidity { get { return _humidity; } set { if (value != _humidity) { _humidity = value; HumidityNotify(); HumidityMangement(); } } }
-        public bool VentState { get { return _ventState; } set { if (value != _ventState) { _ventState = value; } } }
-        public bool PumpState { get { return _pumpState; } set { if (value != _pumpState) { _pumpState = value; } } }
-        public double LampBrightness { get { return _lampBrightness; } set { if (value != _lampBrightness) { _lampBrightness = value; LampNotify(); } } }
+        public bool VentState { get { return _ventState; } set { if (value != _ventState) { _ventState = value; SendVentState(); } } }
+        public bool PumpState { get { return _pumpState; } set { if (value != _pumpState) { _pumpState = value; SendPumpState(); } } }
+        public double LampBrightness { get { return _lampBrightness; } set { if (value != _lampBrightness) { _lampBrightness = value; LampNotify(); SendLed(); } } }
 
         List<object> TempListener;
         List<object> BrighListener;
@@ -162,16 +164,73 @@ namespace LocalServer
             BrighListener = new List<object>();
             HumiListener = new List<object>();
             LampListener = new List<object>();
-            TemperatureBoundariesMax = new double[GROUP_COUNT] { 15, 20, 25, 30, 30 };
-            TemperatureBoundariesMin = new double[GROUP_COUNT] { 0, 5, 15, 20, 10 };
-            BrightnessMin = 20;
-            BrightnessMax = 40;
-            HumidityMax = 100;
-            HumidityMin = 10;
+            TemperatureBoundariesMax = new double[GROUP_COUNT] { double.MaxValue, double.MaxValue, double.MaxValue, double.MaxValue, double.MaxValue };
+            TemperatureBoundariesMin = new double[GROUP_COUNT] { double.MinValue, double.MinValue, double.MinValue, double.MinValue, double.MinValue };
+            BrightnessMax = double.MaxValue;
+            BrightnessMin = double.MinValue;
+            HumidityMax = double.MaxValue;
+            HumidityMin = double.MinValue;
 
             VentState = false;
             PumpState = true;
             LampBrightness = 0;
+        }
+
+        public SerialPort currentPort = null;
+        public volatile bool checker = true;
+        public async void TryReadFromPortAsync(Dispatcher MainThread,TextBox output)
+        {
+            await Task.Run(async () =>
+            {
+                System.Threading.Thread.Sleep(500);
+                checker = true;
+                currentPort.DtrEnable = true;
+                //currentPort.ReadTimeout = 1500;
+                currentPort.Open();
+                while (checker)
+                {
+                    try
+                    {
+                        string line = currentPort.ReadLine();
+                        string[] data = line.Split(' ');
+
+
+                        await MainThread.BeginInvoke(new Action(delegate ()
+                        {
+                            try
+                            {
+                                Temperature = double.Parse(data[0].Substring(data[0].IndexOf("Temperature=") + "Temperature=".Length));
+                                Brightness = double.Parse(data[1].Substring(data[1].IndexOf("Brightness=") + "Brightness=".Length));
+                                Humidity = double.Parse(data[2].Substring(data[2].IndexOf("Humidity=") + "Humidity=".Length));
+                            }
+                            catch { }
+
+                            output.Text += line;
+                            output.ScrollToEnd();
+                        }));
+                        System.Threading.Thread.Sleep(50);
+                    }
+                    catch (TimeoutException) { }
+                }
+                currentPort.Close();
+
+            });
+        }
+
+        private void SendVentState()
+        {
+            if (currentPort == null) return;
+            currentPort.WriteLine(_ventState?"VentOn": "VentOff");
+        }
+        private void SendPumpState()
+        {
+            if (currentPort == null) return;
+            currentPort.WriteLine(_pumpState ? "PumpOn" : "PumpOff");
+        }
+        private void SendLed()
+        {
+            if (currentPort == null) return;
+            currentPort.WriteLine("Led="+_lampBrightness);
         }
     }
 }
