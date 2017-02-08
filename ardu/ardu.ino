@@ -95,9 +95,10 @@ void loop() {
         Brightness = lightMeter.readLightLevel();
 
         //SendData
-        sendData(String(Temperature), "Temperature");
-        sendData(String(Humidity), "Humidity");
-        sendData(String(Brightness), "Brightness");
+        sendAllData();
+//        sendData(String(Temperature), "Temperature");
+//        sendData(String(Humidity), "Humidity");
+//        sendData(String(Brightness), "Brightness");
 
         last_sensors_poll = millis();
       }
@@ -138,6 +139,27 @@ void sendData(String data, String param)
   Serial.print(param);
   Serial.print(F(" sended:  "));
   Serial.println(data);
+}
+
+void sendAllData()
+{
+    clearBuf();
+  String json = String(String("{\"Temperature\": ") + Temperature + String(",\"Brightness\": ") + Brightness +String(",\"Humidity\": ") + String(Humidity +"}"));
+  esp.print(F("aPUT /Thingworx/Things/"));
+  esp.print(thing);
+  esp.print(F("/Properties/*"));
+  esp.println(F(" HTTP/1.1"));
+  esp.print(F("aHost: "));
+  esp.println(server);
+  esp.println(F("aContent-Type: application/json"));
+  esp.print(F("aContent-Length: "));
+  esp.println(json.length());
+  esp.print(F("aappKey: "));
+  esp.println(appKey);
+  esp.println(F("a"));
+  esp.println("a" + json);
+  esp.println(F("a"));
+  esp.println(F("C"));
 }
 
 void clearBuf()
